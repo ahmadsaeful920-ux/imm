@@ -1,0 +1,1321 @@
+<!doctype html>
+<html lang="id">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Voting Nominasi v19</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        .nominee-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .nominee-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .nominee-card.selected {
+            border: 3px solid #3b82f6;
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            transform: translateY(-2px);
+        }
+        
+        .nominee-card.selected .overlay {
+            opacity: 1;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(59, 130, 246, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 0.75rem;
+        }
+        
+        .counter-badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .notification {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .thank-you-page {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .login-form {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .stat-card {
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .reset-confirm {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-full"><!-- Toast Messages Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div><!-- Login Page -->
+  <div id="login-page" class="min-h-full flex items-center justify-center px-4">
+   <div class="login-form bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div class="text-center mb-8">
+     <div class="text-6xl mb-4">
+      🗳️
+     </div>
+     <h1 class="text-3xl font-bold text-gray-800 mb-2">Sistem Voting v19</h1>
+     <p class="text-gray-600">Silakan login untuk melanjutkan</p>
+    </div>
+    <form id="login-form" class="space-y-6">
+     <div><label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label> <input type="text" id="username" name="username" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" placeholder="Masukkan username">
+     </div>
+     <div><label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label> <input type="password" id="password" name="password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" placeholder="Masukkan password">
+     </div><button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105"> 🔐 Login </button>
+    </form>
+    <div id="login-error" class="hidden mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+     <p class="text-sm font-medium">Username atau password salah!</p>
+    </div>
+   </div>
+  </div><!-- Admin Dashboard -->
+  <div id="admin-dashboard" class="hidden container mx-auto px-4 py-8">
+   <header class="flex justify-between items-center mb-8">
+    <div>
+     <h1 class="text-4xl font-bold text-gray-800 mb-2">📊 Dashboard Admin v19</h1>
+     <p class="text-lg text-gray-600">Rekapitulasi hasil voting nominasi - Data tersimpan di Canva Sheet</p>
+    </div><button id="admin-logout-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200"> 🚪 Logout </button>
+   </header><!-- Statistics Cards -->
+   <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+     <div class="flex items-center">
+      <div class="text-3xl mr-4">
+       👥
+      </div>
+      <div>
+       <p class="text-sm text-gray-600">Total Voters</p>
+       <p class="text-2xl font-bold text-blue-600" id="admin-total-voters">0</p>
+      </div>
+     </div>
+    </div>
+    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+     <div class="flex items-center">
+      <div class="text-3xl mr-4">
+       🏆
+      </div>
+      <div>
+       <p class="text-sm text-gray-600">Top Nominee</p>
+       <p class="text-lg font-bold text-yellow-600" id="admin-top-nominee">-</p>
+      </div>
+     </div>
+    </div>
+    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+     <div class="flex items-center">
+      <div class="text-3xl mr-4">
+       📈
+      </div>
+      <div>
+       <p class="text-sm text-gray-600">Highest Votes</p>
+       <p class="text-2xl font-bold text-green-600" id="admin-highest-votes">0</p>
+      </div>
+     </div>
+    </div>
+    <div class="stat-card bg-white rounded-xl shadow-lg p-6">
+     <div class="flex items-center">
+      <div class="text-3xl mr-4">
+       📊
+      </div>
+      <div>
+       <p class="text-sm text-gray-600">Total Records</p>
+       <p class="text-2xl font-bold text-purple-600" id="admin-total-records">0</p>
+      </div>
+     </div>
+    </div>
+   </div><!-- Charts and Rankings Section -->
+   <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8"><!-- Bar Chart -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+     <h2 class="text-xl font-bold text-gray-800 mb-4">📊 Grafik Perolehan Suara</h2>
+     <div class="relative">
+      <canvas id="votesChart" width="400" height="400"></canvas>
+     </div>
+     <div class="mt-4 text-center">
+      <p class="text-sm text-gray-600">Diagram batang menampilkan 8 nominasi teratas</p>
+     </div>
+    </div><!-- Top Rankings -->
+    <div class="bg-white rounded-xl shadow-lg p-6">
+     <h2 class="text-xl font-bold text-gray-800 mb-4">🏆 Peringkat Teratas</h2>
+     <div id="top-rankings" class="space-y-3"><!-- Will be populated by JavaScript -->
+     </div>
+     <div class="mt-4 pt-4 border-t border-gray-200">
+      <div class="flex justify-between items-center text-sm text-gray-600"><span>Total Peserta Voting:</span> <span class="font-bold text-blue-600" id="chart-total-voters">0</span>
+      </div>
+     </div>
+    </div>
+   </div><!-- Quick Stats -->
+   <div class="max-w-2xl mx-auto mb-8">
+    <div class="bg-white rounded-xl shadow-lg p-6">
+     <h2 class="text-xl font-bold text-gray-800 mb-4">🎯 Statistik Cepat</h2>
+     <div class="space-y-4" id="quick-stats"><!-- Will be populated by JavaScript -->
+     </div>
+    </div>
+   </div><!-- Full Results Table -->
+   <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
+     <h2 class="text-xl font-bold">📋 Hasil Lengkap (Tersimpan di Canva Sheet)</h2>
+     <div class="flex space-x-2"><button id="export-data-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200"> 📊 Export Data </button> <button id="reset-data-btn" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200"> 🗑️ Reset Data </button>
+     </div>
+    </div>
+    <div class="overflow-x-auto">
+     <table class="w-full">
+      <thead class="bg-gray-50">
+       <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Peringkat</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nominasi</th>
+        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Jumlah Suara</th>
+        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Persentase</th>
+       </tr>
+      </thead>
+      <tbody id="admin-results-table" class="divide-y divide-gray-200"><!-- Results will be populated by JavaScript -->
+      </tbody>
+     </table>
+    </div>
+   </div><!-- Data Status -->
+   <div class="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+    <div class="flex items-center">
+     <div class="text-green-600 text-xl mr-3">
+      📊
+     </div>
+     <div>
+      <p class="text-green-800 font-medium">Data Spreadsheet Status</p>
+      <p class="text-green-700 text-sm">Semua data voting tersimpan otomatis di Canva Sheet dan dapat diakses kapan saja</p>
+     </div>
+    </div>
+   </div>
+  </div><!-- Participant Voting Page -->
+  <div id="voting-page" class="hidden container mx-auto px-4 py-8"><!-- Header -->
+   <header class="text-center mb-8">
+    <div class="flex justify-between items-center mb-4">
+     <div class="flex-1"></div>
+     <h1 class="text-4xl font-bold text-gray-800">🏆 Formulir Pemilihan Nominasi</h1>
+     <div class="flex-1 text-right"><button id="participant-logout-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200"> 🚪 Logout </button>
+     </div>
+    </div>
+    <p class="text-lg text-gray-600 mb-6">Pilih 13 nominasi terbaik dari 14 kandidat yang tersedia</p><!-- Counter -->
+    <div class="inline-flex items-center bg-white rounded-full px-6 py-3 shadow-lg counter-badge"><span class="text-2xl font-bold text-blue-600" id="selected-count">0</span> <span class="text-gray-600 mx-2">/</span> <span class="text-gray-800 font-semibold">13 dipilih</span>
+    </div>
+   </header><!-- Notification -->
+   <div id="notification" class="hidden mb-6">
+    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-r-lg notification max-w-md mx-auto">
+     <p class="font-medium" id="notification-text"></p>
+    </div>
+   </div><!-- Nominees Grid -->
+   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8" id="nominees-grid"><!-- Nominees will be generated by JavaScript -->
+   </div><!-- Submit Button -->
+   <div class="text-center"><button id="submit-btn" class="bg-gray-400 text-white px-8 py-4 rounded-full text-lg font-semibold cursor-not-allowed transition-all duration-300" disabled> <span id="submit-btn-text">📝 Kirim Pilihan</span>
+     <div id="submit-loading" class="hidden inline-block ml-2">
+      <div class="loading-spinner"></div>
+     </div></button>
+   </div>
+  </div><!-- Thank You Page -->
+  <div id="thank-you-page" class="hidden min-h-full flex items-center justify-center">
+   <div class="text-center thank-you-page">
+    <div class="bg-white rounded-2xl shadow-2xl p-12 max-w-md mx-auto">
+     <div class="text-6xl mb-6">
+      🎉
+     </div>
+     <h2 class="text-3xl font-bold text-gray-800 mb-4">Terima Kasih!</h2>
+     <p class="text-lg text-gray-600 mb-6">Pilihan Anda telah berhasil direkam dan tersimpan di spreadsheet.</p>
+     <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+      <p class="text-green-800 font-medium">✅ 13 nominasi telah dipilih</p>
+      <p class="text-green-700 text-sm mt-1">📊 Data tersimpan di Canva Sheet</p>
+     </div><button id="participant-logout-from-thanks" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300"> 🚪 Selesai </button>
+    </div>
+   </div>
+  </div><!-- Results Page -->
+  <div id="results-page" class="hidden container mx-auto px-4 py-8">
+   <header class="text-center mb-8">
+    <h1 class="text-4xl font-bold text-gray-800 mb-4">📊 Hasil Voting Nominasi</h1>
+    <p class="text-lg text-gray-600 mb-6">Ranking berdasarkan jumlah suara yang masuk</p>
+    <div class="inline-flex items-center bg-white rounded-full px-6 py-3 shadow-lg"><span class="text-lg font-semibold text-gray-800">Total Voter: </span> <span class="text-2xl font-bold text-purple-600 ml-2" id="total-voters">0</span>
+    </div>
+   </header>
+   <div class="max-w-4xl mx-auto"><!-- Top 3 Winners -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+     <div id="winner-2" class="bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl p-6 text-center order-1 md:order-1">
+      <div class="text-4xl mb-2">
+       🥈
+      </div>
+      <h3 class="text-lg font-bold text-gray-800">Peringkat 2</h3>
+     </div>
+     <div id="winner-1" class="bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl p-6 text-center order-0 md:order-2">
+      <div class="text-5xl mb-2">
+       🏆
+      </div>
+      <h3 class="text-xl font-bold text-gray-800">Juara 1</h3>
+     </div>
+     <div id="winner-3" class="bg-gradient-to-br from-orange-100 to-orange-200 rounded-xl p-6 text-center order-2 md:order-3">
+      <div class="text-4xl mb-2">
+       🥉
+      </div>
+      <h3 class="text-lg font-bold text-gray-800">Peringkat 3</h3>
+     </div>
+    </div><!-- Full Results Table -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+     <div class="bg-purple-600 text-white p-4">
+      <h2 class="text-xl font-bold">Hasil Lengkap</h2>
+     </div>
+     <div class="overflow-x-auto">
+      <table class="w-full">
+       <thead class="bg-gray-50">
+        <tr>
+         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Peringkat</th>
+         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nominasi</th>
+         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Jumlah Suara</th>
+         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Persentase</th>
+        </tr>
+       </thead>
+       <tbody id="results-table" class="divide-y divide-gray-200"><!-- Results will be populated by JavaScript -->
+       </tbody>
+      </table>
+     </div>
+    </div>
+    <div class="text-center mt-8"><button id="back-to-voting-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300"> ← Kembali ke Voting </button>
+    </div>
+   </div>
+  </div>
+  <script>
+        // CARA MENGEDIT NOMINASI:
+        // 1. Untuk mengganti nama: ubah bagian name: "Nama Baru"
+        // 2. Untuk mengganti deskripsi: ubah bagian description: "Deskripsi baru"
+        // 3. Untuk mengganti foto/avatar: ubah bagian avatar: "🆕" (gunakan emoji atau URL foto)
+        // 4. Untuk menambah nominasi: copy salah satu baris dan ubah id-nya (harus unik)
+        // 5. Untuk menggunakan foto asli: ganti avatar: "🆕" dengan avatar: "https://link-foto-anda.jpg"
+        
+        const nominees = [
+            { id: 1, name: "Ahmad Saeful Fatoni", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18qE_Wht4SM4Gvbr6zKnkWx1qHl5WpJZk" },
+            { id: 2, name: "Ilham Bayu Pamuji", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18cwUrutcdOq_ucob8EZOOUmnmmd-cRhf" },
+            { id: 3, name: "Dhea Anggun Syarif H.L", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18ciQahoK0X0TTulp86_btkPec-BoqkZ0" },
+            { id: 4, name: "Yafi Rihhadatul Aisya", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18Znva7qXNlMV_DGxX0rF-_05SHSjypEl" },
+            { id: 5, name: "Sufindra Mukti Wibowo", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18XhajxIpfVGPERs7bZuEmeNUlHBleSDH" },
+            { id: 6, name: "Muhammad Asyrofi", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18XRq5Vu2jHF-c7ajU4qs6EmPhagzTOPy" },
+            { id: 7, name: "Putri Ayu Anggaraeni", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18WO44GXKgxVdp_A5tHOAKQJcM63cBzP2" },
+            { id: 8, name: "Marcheluna Al-Birru Ardiansyah", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18URx7rsNp1iYrNryB_deEZz6t4YtUbg2" },
+            { id: 9, name: "Pinkan Salma Rizkita", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18Rn5P2SH8015N5ofg_1pHsikYy5MNLKq" },
+            { id: 10, name: "Nabilah Nur Khasanah", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18NjvaHndwWZM1dvt5Eu0GcgVF3h9LLBG" },
+            { id: 11, name: "Sih Utomo Dwi Aprianto", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18LcdZBzLbdkKBd2sBEXbBTf5PotK_0oC" },
+            { id: 12, name: "Wahyuningsih Lestari", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18Klo4YkEMpGT9bhVyRY9fgHhuu6fpQgc" },
+            { id: 13, name: "Aditya Wahyu Susanto", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18pyBDvhIn0gmhrT42hc1NE_uOT1hPR0D" },
+            { id: 14, name: "Muhammad Shodiq", description: "Kandidat Nominasi", avatar: "https://lh3.googleusercontent.com/d/18e78jTnX4m1VeDN4Df0J0xe77JJjrTfe" }
+        ];
+
+        let selectedNominees = new Set();
+        const maxSelection = 13;
+
+        // User credentials (in real app, this would be server-side)
+        const users = {
+            'admin': { password: 'admin123', role: 'admin' },
+            'peserta': { password: 'peserta123', role: 'participant' }
+        };
+
+        // Current user session
+        let currentUser = null;
+
+        // Data SDK variables
+        let allVotingData = [];
+        let isDataSdkReady = false;
+
+        // Reset button state
+        let resetConfirmState = false;
+        let resetTimeout = null;
+
+        // Data handler for SDK
+        const dataHandler = {
+            onDataChanged(data) {
+                allVotingData = data;
+                if (currentUser && currentUser.role === 'admin') {
+                    updateAdminDashboard();
+                }
+            }
+        };
+
+        // Initialize Data SDK
+        async function initializeDataSdk() {
+            try {
+                if (window.dataSdk) {
+                    const result = await window.dataSdk.init(dataHandler);
+                    if (result.isOk) {
+                        isDataSdkReady = true;
+                        console.log('Data SDK initialized successfully');
+                    } else {
+                        console.error('Failed to initialize Data SDK:', result.error);
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing Data SDK:', error);
+            }
+        }
+
+        // Global session ID for current voting session
+        let currentSessionId = null;
+
+        // Toast notification system
+        function showToast(message, type = 'info', duration = 3000) {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = {
+                'success': 'bg-green-500',
+                'error': 'bg-red-500',
+                'warning': 'bg-yellow-500',
+                'info': 'bg-blue-500'
+            }[type] || 'bg-blue-500';
+
+            toast.className = `toast-message ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg max-w-sm`;
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <span class="mr-2">${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+                    <span class="font-medium">${message}</span>
+                </div>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            // Auto remove after duration
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.style.animation = 'slideInRight 0.3s ease-out reverse';
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toastContainer.removeChild(toast);
+                        }
+                    }, 300);
+                }
+            }, duration);
+        }
+
+        // Save vote to spreadsheet
+        async function saveVoteToSpreadsheet(nomineeId, nomineeName) {
+            if (!isDataSdkReady || !window.dataSdk) {
+                console.error('Data SDK not ready');
+                return false;
+            }
+
+            // Check data limit before creating
+            if (allVotingData.length >= 999) {
+                showToast('Batas maksimum 999 data telah tercapai!', 'error');
+                return false;
+            }
+
+            // Use the same session ID for all votes in this submission
+            if (!currentSessionId) {
+                currentSessionId = generateSessionId();
+            }
+
+            const voteData = {
+                voter_id: currentUser ? currentUser.username : 'anonymous',
+                nominee_id: nomineeId,
+                nominee_name: nomineeName,
+                vote_timestamp: new Date().toISOString(),
+                session_id: currentSessionId
+            };
+
+            try {
+                const result = await window.dataSdk.create(voteData);
+                if (result.isOk) {
+                    return true;
+                } else {
+                    console.error('Failed to save vote:', result.error);
+                    showToast('Gagal menyimpan data: ' + result.error.message, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error saving vote:', error);
+                showToast('Terjadi kesalahan saat menyimpan', 'error');
+                return false;
+            }
+        }
+
+        // Generate unique session ID
+        function generateSessionId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        // Calculate voting statistics from spreadsheet data
+        function calculateVotingStats() {
+            const voteCounts = {};
+            const voterSessions = new Set();
+
+            // Count votes and unique voters (sessions)
+            allVotingData.forEach(vote => {
+                if (vote.nominee_id && vote.session_id) {
+                    voteCounts[vote.nominee_id] = (voteCounts[vote.nominee_id] || 0) + 1;
+                    voterSessions.add(vote.session_id);
+                }
+            });
+
+            return {
+                voteCounts,
+                totalVoters: voterSessions.size,
+                totalRecords: allVotingData.length
+            };
+        }
+
+        // Login functionality
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (users[username] && users[username].password === password) {
+                currentUser = { username, role: users[username].role };
+                
+                // Hide login page
+                document.getElementById('login-page').classList.add('hidden');
+                
+                // Show appropriate interface
+                if (currentUser.role === 'admin') {
+                    showAdminDashboard();
+                    showToast(`Selamat datang Admin ${username}!`, 'success');
+                } else {
+                    showVotingPage();
+                    showToast(`Selamat datang ${username}!`, 'success');
+                }
+                
+                // Clear login form
+                document.getElementById('login-form').reset();
+                hideLoginError();
+            } else {
+                showLoginError();
+            }
+        }
+
+        function showLoginError() {
+            document.getElementById('login-error').classList.remove('hidden');
+        }
+
+        function hideLoginError() {
+            document.getElementById('login-error').classList.add('hidden');
+        }
+
+        function logout() {
+            const username = currentUser ? currentUser.username : '';
+            currentUser = null;
+            
+            // Reset session ID
+            currentSessionId = null;
+            
+            // Hide all pages
+            document.getElementById('admin-dashboard').classList.add('hidden');
+            document.getElementById('voting-page').classList.add('hidden');
+            document.getElementById('thank-you-page').classList.add('hidden');
+            document.getElementById('results-page').classList.add('hidden');
+            
+            // Show login page
+            document.getElementById('login-page').classList.remove('hidden');
+            
+            // Reset voting selections
+            selectedNominees.clear();
+            document.querySelectorAll('.nominee-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            updateCounter();
+            updateSubmitButton();
+
+            if (username) {
+                showToast(`Sampai jumpa ${username}!`, 'info');
+            }
+        }
+
+        function showAdminDashboard() {
+            document.getElementById('admin-dashboard').classList.remove('hidden');
+            updateAdminDashboard();
+        }
+
+        function showVotingPage() {
+            document.getElementById('voting-page').classList.remove('hidden');
+            generateNomineeCards();
+            updateCounter();
+            updateSubmitButton();
+        }
+
+        // Generate nominee cards
+        function generateNomineeCards() {
+            const grid = document.getElementById('nominees-grid');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+
+            nominees.forEach(nominee => {
+                const card = document.createElement('div');
+                card.className = 'nominee-card bg-white rounded-xl shadow-md p-6 relative';
+                card.dataset.id = nominee.id;
+                
+                // Check if avatar is URL or emoji
+                const isUrl = nominee.avatar.startsWith('http');
+                const avatarHtml = isUrl 
+                    ? `<img src="${nominee.avatar}" alt="${nominee.name}" class="w-48 h-64 rounded-lg mx-auto mb-4 object-cover border-2 border-gray-200 shadow-md" onerror="this.src=''; this.alt='Foto tidak dapat dimuat'; this.className='w-48 h-64 rounded-lg mx-auto mb-4 bg-gray-200 flex items-center justify-center text-gray-500 text-xs border-2 border-gray-200';">`
+                    : `<div class="text-8xl mb-4">${nominee.avatar}</div>`;
+
+                card.innerHTML = `
+                    <div class="overlay"></div>
+                    <div class="text-center relative z-10">
+                        ${avatarHtml}
+                        <h3 class="text-xl font-bold text-gray-800">${nominee.name}</h3>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => toggleSelection(nominee.id, card));
+                grid.appendChild(card);
+            });
+        }
+
+        // Toggle nominee selection
+        function toggleSelection(nomineeId, cardElement) {
+            if (selectedNominees.has(nomineeId)) {
+                selectedNominees.delete(nomineeId);
+                cardElement.classList.remove('selected');
+            } else {
+                if (selectedNominees.size < maxSelection) {
+                    selectedNominees.add(nomineeId);
+                    cardElement.classList.add('selected');
+                } else {
+                    showNotification('Anda sudah memilih 13 nominasi. Hapus pilihan lain terlebih dahulu.');
+                    return;
+                }
+            }
+
+            updateCounter();
+            updateSubmitButton();
+            hideNotification();
+        }
+
+        // Update counter
+        function updateCounter() {
+            document.getElementById('selected-count').textContent = selectedNominees.size;
+        }
+
+        // Update submit button state
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submit-btn');
+            
+            if (selectedNominees.size === maxSelection) {
+                submitBtn.disabled = false;
+                submitBtn.className = 'bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold cursor-pointer transition-all duration-300 transform hover:scale-105';
+                document.getElementById('submit-btn-text').textContent = '📝 Kirim Pilihan';
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.className = 'bg-gray-400 text-white px-8 py-4 rounded-full text-lg font-semibold cursor-not-allowed transition-all duration-300';
+                document.getElementById('submit-btn-text').textContent = `📝 Pilih ${maxSelection - selectedNominees.size} lagi`;
+            }
+        }
+
+        // Show notification
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notification-text');
+            
+            notificationText.textContent = message;
+            notification.classList.remove('hidden');
+            
+            setTimeout(() => {
+                hideNotification();
+            }, 3000);
+        }
+
+        // Hide notification
+        function hideNotification() {
+            document.getElementById('notification').classList.add('hidden');
+        }
+
+        // Handle form submission
+        async function handleSubmit() {
+            if (selectedNominees.size !== maxSelection) {
+                showNotification(`Silakan pilih ${maxSelection} nominasi sebelum mengirim.`);
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = document.getElementById('submit-btn');
+            const submitBtnText = document.getElementById('submit-btn-text');
+            const submitLoading = document.getElementById('submit-loading');
+            
+            submitBtn.disabled = true;
+            submitBtnText.textContent = 'Menyimpan...';
+            submitLoading.classList.remove('hidden');
+
+            try {
+                // Check if we're approaching the 999 record limit
+                if (allVotingData.length + selectedNominees.size >= 999) {
+                    showToast('Batas maksimum 999 data telah tercapai!', 'error');
+                    return;
+                }
+
+                // Save each selected nominee to spreadsheet
+                let successCount = 0;
+                for (const nomineeId of selectedNominees) {
+                    const nominee = nominees.find(n => n.id === nomineeId);
+                    if (nominee) {
+                        const success = await saveVoteToSpreadsheet(nomineeId, nominee.name);
+                        if (success) {
+                            successCount++;
+                        }
+                    }
+                }
+
+                if (successCount === selectedNominees.size) {
+                    // All votes saved successfully
+                    currentSessionId = null;
+                    document.getElementById('voting-page').classList.add('hidden');
+                    document.getElementById('thank-you-page').classList.remove('hidden');
+                    showToast('Voting berhasil disimpan!', 'success');
+                } else {
+                    showToast('Beberapa pilihan gagal disimpan', 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting votes:', error);
+                showToast('Terjadi kesalahan saat menyimpan', 'error');
+            } finally {
+                // Reset loading state
+                submitBtn.disabled = false;
+                submitBtnText.textContent = '📝 Kirim Pilihan';
+                submitLoading.classList.add('hidden');
+                updateSubmitButton();
+            }
+        }
+
+        // Display voting results
+        function displayResults() {
+            const stats = calculateVotingStats();
+            
+            // Calculate results
+            const results = nominees.map(nominee => ({
+                ...nominee,
+                votes: stats.voteCounts[nominee.id] || 0,
+                percentage: stats.totalVoters > 0 ? ((stats.voteCounts[nominee.id] || 0) / stats.totalVoters * 100).toFixed(1) : 0
+            })).sort((a, b) => b.votes - a.votes);
+
+            // Update total voters
+            document.getElementById('total-voters').textContent = stats.totalVoters;
+
+            // Display top 3
+            if (results.length >= 3) {
+                displayWinner(1, results[0]);
+                displayWinner(2, results[1]);
+                displayWinner(3, results[2]);
+            }
+
+            // Display full results table
+            const tableBody = document.getElementById('results-table');
+            tableBody.innerHTML = '';
+
+            results.forEach((nominee, index) => {
+                const row = document.createElement('tr');
+                row.className = index < 3 ? 'bg-yellow-50' : '';
+                
+                const isUrl = nominee.avatar.startsWith('http');
+                const avatarHtml = isUrl 
+                    ? `<img src="${nominee.avatar}" alt="${nominee.name}" class="w-12 h-12 rounded-lg object-cover border border-gray-200 mr-3">`
+                    : `<span class="text-2xl mr-3">${nominee.avatar}</span>`;
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-2">${index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            ${avatarHtml}
+                            <span class="font-medium text-gray-900">${nominee.name}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="text-lg font-semibold text-gray-900">${nominee.votes}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="text-lg font-semibold text-purple-600">${nominee.percentage}%</span>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+
+            // Show results page
+            document.getElementById('thank-you-page').classList.add('hidden');
+            document.getElementById('results-page').classList.remove('hidden');
+        }
+
+        // Display winner in podium
+        function displayWinner(position, nominee) {
+            const winnerDiv = document.getElementById(`winner-${position}`);
+            if (!nominee) return;
+
+            const isUrl = nominee.avatar.startsWith('http');
+            const avatarHtml = isUrl 
+                ? `<img src="${nominee.avatar}" alt="${nominee.name}" class="w-20 h-20 rounded-lg object-cover border-2 border-gray-300 mx-auto mb-3">`
+                : `<div class="text-6xl mb-3">${nominee.avatar}</div>`;
+
+            winnerDiv.innerHTML = `
+                <div class="text-4xl mb-2">${position === 1 ? '🏆' : position === 2 ? '🥈' : '🥉'}</div>
+                <h3 class="text-lg font-bold text-gray-800 mb-3">${position === 1 ? 'Juara 1' : `Peringkat ${position}`}</h3>
+                ${avatarHtml}
+                <h4 class="font-bold text-gray-800 mb-1">${nominee.name}</h4>
+                <p class="text-sm text-gray-600">${nominee.votes} suara (${nominee.percentage}%)</p>
+            `;
+        }
+
+        // Admin Dashboard Functions
+        function updateAdminDashboard() {
+            updateAdminStats();
+            updateAdminTable();
+            updateQuickStats();
+            drawVotesChart();
+            updateTopRankings();
+        }
+
+        function updateAdminStats() {
+            const stats = calculateVotingStats();
+            
+            // Calculate statistics
+            const results = nominees.map(nominee => ({
+                ...nominee,
+                votes: stats.voteCounts[nominee.id] || 0
+            })).sort((a, b) => b.votes - a.votes);
+
+            const topNominee = results[0];
+            const highestVotes = topNominee ? topNominee.votes : 0;
+
+            // Update stats cards
+            document.getElementById('admin-total-voters').textContent = stats.totalVoters;
+            document.getElementById('admin-top-nominee').textContent = topNominee ? topNominee.name : '-';
+            document.getElementById('admin-highest-votes').textContent = highestVotes;
+            document.getElementById('admin-total-records').textContent = stats.totalRecords;
+        }
+
+        function updateAdminTable() {
+            const stats = calculateVotingStats();
+            
+            const results = nominees.map(nominee => ({
+                ...nominee,
+                votes: stats.voteCounts[nominee.id] || 0,
+                percentage: stats.totalVoters > 0 ? ((stats.voteCounts[nominee.id] || 0) / stats.totalVoters * 100).toFixed(1) : 0
+            })).sort((a, b) => b.votes - a.votes);
+
+            const tableBody = document.getElementById('admin-results-table');
+            tableBody.innerHTML = '';
+
+            results.forEach((nominee, index) => {
+                const row = document.createElement('tr');
+                row.className = index < 3 ? 'bg-yellow-50' : '';
+                
+                const isUrl = nominee.avatar.startsWith('http');
+                const avatarHtml = isUrl 
+                    ? `<img src="${nominee.avatar}" alt="${nominee.name}" class="w-12 h-12 rounded-lg object-cover border border-gray-200 mr-3">`
+                    : `<span class="text-2xl mr-3">${nominee.avatar}</span>`;
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-2">${index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            ${avatarHtml}
+                            <span class="font-medium text-gray-900">${nominee.name}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="text-lg font-semibold text-gray-900">${nominee.votes}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="text-lg font-semibold text-purple-600">${nominee.percentage}%</span>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function updateQuickStats() {
+            const stats = calculateVotingStats();
+            
+            const results = nominees.map(nominee => ({
+                ...nominee,
+                votes: stats.voteCounts[nominee.id] || 0
+            })).sort((a, b) => b.votes - a.votes);
+
+            const quickStatsDiv = document.getElementById('quick-stats');
+            quickStatsDiv.innerHTML = '';
+
+            // Most voted
+            if (results[0] && results[0].votes > 0) {
+                quickStatsDiv.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                        <span class="text-sm font-medium text-gray-700">🏆 Terpopuler</span>
+                        <span class="font-bold text-yellow-600">${results[0].name} (${results[0].votes})</span>
+                    </div>
+                `;
+            }
+
+            // Least voted (but has votes)
+            const withVotes = results.filter(r => r.votes > 0);
+            if (withVotes.length > 0) {
+                const least = withVotes[withVotes.length - 1];
+                quickStatsDiv.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                        <span class="text-sm font-medium text-gray-700">📊 Terendah</span>
+                        <span class="font-bold text-blue-600">${least.name} (${least.votes})</span>
+                    </div>
+                `;
+            }
+
+            // No votes count
+            const noVotes = results.filter(r => r.votes === 0).length;
+            if (noVotes > 0) {
+                quickStatsDiv.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm font-medium text-gray-700">❌ Belum Ada Suara</span>
+                        <span class="font-bold text-gray-600">${noVotes} nominasi</span>
+                    </div>
+                `;
+            }
+
+            // Average votes
+            if (stats.totalVoters > 0) {
+                const avgVotes = (stats.totalVoters * 13 / nominees.length).toFixed(1);
+                quickStatsDiv.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <span class="text-sm font-medium text-gray-700">📈 Rata-rata</span>
+                        <span class="font-bold text-green-600">${avgVotes} suara</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Draw bar chart for votes - IMPROVED VERSION
+        function drawVotesChart() {
+            const canvas = document.getElementById('votesChart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const stats = calculateVotingStats();
+            
+            // Get top 8 nominees by votes for better readability
+            const results = nominees.map(nominee => ({
+                ...nominee,
+                votes: stats.voteCounts[nominee.id] || 0
+            })).sort((a, b) => b.votes - a.votes).slice(0, 8);
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (results.length === 0 || results[0].votes === 0) {
+                // No data to display
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Belum ada data voting', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            const padding = 60; // Increased padding for names
+            const bottomPadding = 120; // Extra space for multi-line names
+            const chartWidth = canvas.width - (padding * 2);
+            const chartHeight = canvas.height - padding - bottomPadding;
+            const barWidth = chartWidth / results.length;
+            const maxVotes = Math.max(...results.map(r => r.votes));
+
+            // Draw bars
+            results.forEach((nominee, index) => {
+                const barHeight = maxVotes > 0 ? (nominee.votes / maxVotes) * chartHeight : 0;
+                const x = padding + (index * barWidth);
+                const y = padding + chartHeight - barHeight;
+
+                // Draw bar with gradient
+                const gradient = ctx.createLinearGradient(0, y, 0, y + barHeight);
+                gradient.addColorStop(0, '#3b82f6');
+                gradient.addColorStop(1, '#1d4ed8');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x + 8, y, barWidth - 16, barHeight);
+
+                // Draw vote count on top of bar
+                if (nominee.votes > 0) {
+                    ctx.fillStyle = '#1f2937';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(nominee.votes.toString(), x + barWidth / 2, y - 8);
+                }
+
+                // Draw nominee name with word wrapping
+                ctx.fillStyle = '#374151';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                
+                // Split long names into multiple lines
+                const words = nominee.name.split(' ');
+                const lines = [];
+                let currentLine = '';
+                
+                words.forEach(word => {
+                    const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                    const metrics = ctx.measureText(testLine);
+                    
+                    if (metrics.width > barWidth - 10 && currentLine) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = testLine;
+                    }
+                });
+                
+                if (currentLine) {
+                    lines.push(currentLine);
+                }
+
+                // Draw each line
+                const startY = canvas.height - bottomPadding + 20;
+                lines.forEach((line, lineIndex) => {
+                    ctx.fillText(line, x + barWidth / 2, startY + (lineIndex * 16));
+                });
+            });
+
+            // Draw Y-axis labels and grid
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '11px Arial';
+            ctx.textAlign = 'right';
+            
+            const steps = 5;
+            for (let i = 0; i <= steps; i++) {
+                const value = Math.round((maxVotes / steps) * i);
+                const y = padding + chartHeight - (chartHeight / steps) * i;
+                
+                // Draw label
+                ctx.fillText(value.toString(), padding - 10, y + 4);
+                
+                // Draw grid lines
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+
+            // Draw chart title
+            ctx.fillStyle = '#1f2937';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Top 8 Nominasi Berdasarkan Suara', canvas.width / 2, 25);
+        }
+
+        // Update top rankings display
+        function updateTopRankings() {
+            const stats = calculateVotingStats();
+            const results = nominees.map(nominee => ({
+                ...nominee,
+                votes: stats.voteCounts[nominee.id] || 0,
+                percentage: stats.totalVoters > 0 ? ((stats.voteCounts[nominee.id] || 0) / stats.totalVoters * 100).toFixed(1) : 0
+            })).sort((a, b) => b.votes - a.votes);
+
+            const topRankingsDiv = document.getElementById('top-rankings');
+            const chartTotalVoters = document.getElementById('chart-total-voters');
+            
+            if (!topRankingsDiv || !chartTotalVoters) return;
+
+            // Update total voters
+            chartTotalVoters.textContent = stats.totalVoters;
+
+            // Clear existing content
+            topRankingsDiv.innerHTML = '';
+
+            // Show top 13 or all if less than 13
+            const topResults = results.slice(0, 13);
+
+            if (topResults.length === 0 || topResults[0].votes === 0) {
+                topRankingsDiv.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <div class="text-4xl mb-2">📊</div>
+                        <p>Belum ada data voting</p>
+                    </div>
+                `;
+                return;
+            }
+
+            topResults.forEach((nominee, index) => {
+                const isUrl = nominee.avatar.startsWith('http');
+                const avatarHtml = isUrl 
+                    ? `<img src="${nominee.avatar}" alt="${nominee.name}" class="w-10 h-10 rounded-lg object-cover border border-gray-200">`
+                    : `<div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg">${nominee.avatar}</div>`;
+
+                const rankIcon = index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+                const rankColor = index === 0 ? 'text-yellow-600' : index === 1 ? 'text-gray-500' : index === 2 ? 'text-orange-600' : 'text-gray-700';
+
+                const rankingItem = document.createElement('div');
+                rankingItem.className = `flex items-center justify-between p-3 rounded-lg ${index < 3 ? 'bg-gradient-to-r from-yellow-50 to-orange-50' : 'bg-gray-50'} hover:shadow-md transition-all duration-200`;
+                
+                rankingItem.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="text-xl ${rankColor} font-bold min-w-[2rem]">${rankIcon}</div>
+                        ${avatarHtml}
+                        <div>
+                            <p class="font-semibold text-gray-800 text-sm">${nominee.name}</p>
+                            <p class="text-xs text-gray-600">${nominee.percentage}% dari total voter</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-bold text-blue-600">${nominee.votes}</p>
+                        <p class="text-xs text-gray-500">suara</p>
+                    </div>
+                `;
+
+                topRankingsDiv.appendChild(rankingItem);
+            });
+
+            // Add "Show More" indicator if there are more than 13 nominees
+            if (results.length > 13) {
+                const showMoreDiv = document.createElement('div');
+                showMoreDiv.className = 'text-center py-2 text-gray-500 text-sm';
+                showMoreDiv.innerHTML = `<p>... dan ${results.length - 13} nominasi lainnya</p>`;
+                topRankingsDiv.appendChild(showMoreDiv);
+            }
+        }
+
+        // Export data functionality
+        function exportData() {
+            if (allVotingData.length === 0) {
+                showToast('Tidak ada data untuk diekspor', 'warning');
+                return;
+            }
+
+            const stats = calculateVotingStats();
+            const results = nominees.map(nominee => ({
+                ...nominee,
+                votes: stats.voteCounts[nominee.id] || 0,
+                percentage: stats.totalVoters > 0 ? ((stats.voteCounts[nominee.id] || 0) / stats.totalVoters * 100).toFixed(1) : 0
+            })).sort((a, b) => b.votes - a.votes);
+
+            let csvContent = "Peringkat,Nama Nominasi,Jumlah Suara,Persentase\n";
+            results.forEach((nominee, index) => {
+                csvContent += `${index + 1},"${nominee.name}",${nominee.votes},${nominee.percentage}%\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `hasil_voting_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('Data berhasil diekspor!', 'success');
+        }
+
+        // Reset all data (for admin) - IMPROVED VERSION
+        async function resetVotingData() {
+            if (!currentUser || currentUser.role !== 'admin') {
+                showToast('Akses ditolak!', 'error');
+                return;
+            }
+
+            const resetBtn = document.getElementById('reset-data-btn');
+            
+            if (!resetConfirmState) {
+                // First click - show confirmation
+                resetBtn.innerHTML = '⚠️ Klik Lagi untuk Konfirmasi';
+                resetBtn.className = 'bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200 reset-confirm';
+                resetConfirmState = true;
+
+                // Auto-reset confirmation after 3 seconds
+                resetTimeout = setTimeout(() => {
+                    resetConfirmState = false;
+                    resetBtn.innerHTML = '🗑️ Reset Data';
+                    resetBtn.className = 'bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200';
+                }, 3000);
+
+            } else {
+                // Second click - execute reset
+                clearTimeout(resetTimeout);
+                resetConfirmState = false;
+
+                // Show loading state
+                resetBtn.disabled = true;
+                resetBtn.innerHTML = '🔄 Menghapus Data...';
+                resetBtn.className = 'bg-gray-400 px-4 py-2 rounded-lg font-semibold cursor-not-allowed';
+
+                try {
+                    let deletedCount = 0;
+                    const totalRecords = allVotingData.length;
+
+                    // Delete all records from spreadsheet
+                    for (const record of allVotingData) {
+                        if (record.__backendId) {
+                            const result = await window.dataSdk.delete(record);
+                            if (result.isOk) {
+                                deletedCount++;
+                            }
+                        }
+                    }
+
+                    // Show success message
+                    resetBtn.innerHTML = `✅ ${deletedCount} Data Terhapus`;
+                    resetBtn.className = 'bg-green-600 px-4 py-2 rounded-lg font-semibold';
+                    
+                    showToast(`${deletedCount} dari ${totalRecords} data berhasil dihapus!`, 'success');
+
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        resetBtn.disabled = false;
+                        resetBtn.innerHTML = '🗑️ Reset Data';
+                        resetBtn.className = 'bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200';
+                    }, 2000);
+
+                } catch (error) {
+                    console.error('Error resetting data:', error);
+                    
+                    // Show error state
+                    resetBtn.innerHTML = '❌ Error - Coba Lagi';
+                    resetBtn.className = 'bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200';
+                    
+                    showToast('Terjadi kesalahan saat menghapus data', 'error');
+
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        resetBtn.disabled = false;
+                        resetBtn.innerHTML = '🗑️ Reset Data';
+                        resetBtn.className = 'bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all duration-200';
+                    }, 2000);
+                }
+            }
+        }
+
+        // Initialize the application
+        async function init() {
+            // Initialize Data SDK first
+            await initializeDataSdk();
+
+            // Add login event listener
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+            
+            // Add logout event listeners
+            document.getElementById('admin-logout-btn').addEventListener('click', logout);
+            document.getElementById('participant-logout-btn').addEventListener('click', logout);
+            
+            // Add voting event listeners
+            document.getElementById('submit-btn').addEventListener('click', handleSubmit);
+            document.getElementById('participant-logout-from-thanks').addEventListener('click', logout);
+            document.getElementById('back-to-voting-btn').addEventListener('click', () => {
+                document.getElementById('results-page').classList.add('hidden');
+                document.getElementById('voting-page').classList.remove('hidden');
+                // Reset selections for new vote
+                selectedNominees.clear();
+                document.querySelectorAll('.nominee-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                updateCounter();
+                updateSubmitButton();
+            });
+
+            // Add admin event listeners
+            document.getElementById('export-data-btn').addEventListener('click', exportData);
+            document.getElementById('reset-data-btn').addEventListener('click', resetVotingData);
+
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+Shift+R to reset data (admin only)
+                if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+                    e.preventDefault();
+                    if (currentUser && currentUser.role === 'admin') {
+                        resetVotingData();
+                    }
+                }
+                
+                // Escape to logout
+                if (e.key === 'Escape' && currentUser) {
+                    logout();
+                }
+            });
+
+            // Show login page initially
+            document.getElementById('login-page').classList.remove('hidden');
+        }
+
+        // Start the application
+        init();
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9957caf0c7f4a138',t:'MTc2MTYyNjgyMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
